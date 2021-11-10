@@ -1,0 +1,97 @@
+name: Orchestrate Issue triggered workflows based on labels
+on:
+  issues:
+    types: [assigned]
+
+jobs:
+  blog_issue_assigned:
+    if: ${{github.event.issue.labels[0].name == 'documentation.blog'}}
+    name: Blog Issue Assigned
+    
+    runs-on: ubuntu-latest
+    env:
+      BRANCH_NAME: blog/issue${{github.event.issue.number}}
+      PYTHON_VERSION: 3.8
+      
+    steps:
+      - name: Blog Post Issue Checkout main
+        uses: actions/checkout@v2
+      
+      - name: Create new Blog Branch
+        run: |
+          git checkout -b ${{env.BRANCH_NAME}}
+          
+      - name: Query GraphQL for Ids
+        uses: octokit/graphql-action@v2.x
+        id: get_ids
+        with:
+          query: |
+            query ids($owner:String!,$repo:String!) { 
+              repository(owner:$owner,name:$repo) {
+                discussionCategories(first: 10) {
+                  nodes {
+                    name
+                    id
+                  }
+                }
+                id
+              }
+            }
+          owner: ${{ github.event.repository.owner.login }}
+          repo: ${{ github.event.repository.name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Extract Ids
+        id: extract_ids
+        env:
+          JSON_DATA: ${{ steps.get_ids.outputs.data}}
+        run: >
+          echo "repositoryId=$(echo ${JSON_DATA} | jq -r '.repository.id')" >> $GITHUB_ENV;
+          echo "categoryId=$(echo ${JSON_DATA} | jq -r '.repository.discussionCategories.nodes[] | select(.name == "Blog") | .id')" >> $GITHUB_ENV;
+      
+      - name: Create Discussion cURL
+        id: create_discussion
+        run: |
+          json="{\"query\": \"mutation { createDiscussion(input: {repositoryId: \\\"${{ env.repositoryId }}\\\", title: \\\"${{ env.title }}\\\", body: \\\"${{ env.body }}\\\", categoryId: \\\"${{ env.categoryId }}\\\"}) { discussion { number } } }\"}"
+          discussion_number=$(curl -s -H "Content-Type: application/json" -H "Authorization: bearer ${{env.GITHUB_TOKEN }}" -X POST -d "${json}" https://api.github.com/graphql | jq -c '.data')
+          echo "::set-output name=data::${discussion_number}"
+          
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          title: ${{ github.event.issue.title }}
+          body: "This discussion was made by GitHub Actions"
+
+      - name: Extract Discussion Number
+        id: extract_discussion_number
+        env:
+          JSON_DATA: ${{ steps.create_discussion.outputs.data}}
+        run: >
+          echo "discussionNumber=$(echo ${JSON_DATA} | jq -r '.createDiscussion.discussion.number')" >> $GITHUB_ENV;
+
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{env.PYTHON_VERSION}}
+      
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt 
+      
+      - name: Generate Blog Entry and Clean Up
+        run: |
+          echo "${{github.event.issue.body}}" > src/config.yml
+          cat src/config.yml
+          cd src
+          python -m profile_builder blog -t ./templates -o ../docs/blog -c ./config.yml \
+          -C "discussion_url:https://github.com/${{ github.event.repository.owner.login }}/${{ github.event.repository.name }}/discussions/${{ env.discussionNumber }}" -v
+          python -m profile_builder digest -t ./templates/home-digest.md.j2 -l 3 -i ../docs/blog -o ../docs/index.md -v
+          python -m profile_builder digest -t ./templates/blog-digest.md.j2 -l 3 -i ../docs/blog -o ../docs/blog/readme.md -v
+          rm config.yml
+          cd ..
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add .
+          git commit -m "generated ${{env.BRANCH_NAME}}"
+          git push --set-upstream origin ${{env.BRANCH_NAME}}

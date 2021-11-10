@@ -1,0 +1,73 @@
+---
+disque: jbold569
+title: {{ title }}
+description: {{ description }}
+publish_date: {{ publish_date }}
+filename: {{ filename[:-3] }}
+---
+
+--8<-- "includes/abbreviations.md"
+
+<div id="banner" class="page-image">
+    <img src="../img/{{ publish_date.strftime('%Y-%m-%d') }}-blog-banner.drawio.svg" alt="">
+    <div class="page-image-caption">
+        <p>
+            <a href="">AUTHOR</a>
+        </p>
+    </div>
+</div>
+
+<!-- Reposition the banner image on top -->
+<script>
+    var article = document.getElementsByTagName("article")[0];
+    article.insertBefore(document.getElementById("banner"), article.childNodes[0]);
+</script>
+
+# {{ title }}
+
+*Posted by [Jason Bolden](../about.md) on {{ publish_date.strftime('%b %d, %Y') }}*
+
+
+{{ description }}
+
+## Objective
+## The Breakdown
+## Conclusion
+## References
+
+<h2>Comments</h2>
+Continue the discussion [here]({{ discussion_url }})!
+
+# Cheatsheet
+## [Admonitions](https://squidfunk.github.io/mkdocs-material/reference/admonitions/#supported-types)
+!!! note
+    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla et euismod
+    nulla. Curabitur feugiat, tortor non consequat finibus, justo purus auctor
+    massa, nec semper lorem quam in massa.
+
+??? note
+    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla et euismod
+    nulla. Curabitur feugiat, tortor non consequat finibus, justo purus auctor
+    massa, nec semper lorem quam in massa.
+
+!!! note ""
+    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla et euismod
+    nulla. Curabitur feugiat, tortor non consequat finibus, justo purus auctor
+    massa, nec semper lorem quam in massa.
+
+!!! note "Other Title"
+    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla et euismod
+    nulla. Curabitur feugiat, tortor non consequat finibus, justo purus auctor
+    massa, nec semper lorem quam in massa.
+
+!!! note
+    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla et euismod
+    nulla. Curabitur feugiat, tortor non 
+    
+    ```python
+        import re
+        print("Hello World!")
+    ```
+
+    consequat finibus, justo purus auctor
+    massa, nec semper lorem quam in massa.
